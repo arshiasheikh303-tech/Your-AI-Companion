@@ -1,0 +1,11 @@
+fastapi>=0.110
+uvicorn[standard]>=0.27
+sqlalchemy>=2.0
+alembic>=1.13
+apscheduler>=3.10,<4
+pydantic-settings>=2.2
+python-telegram-bot>=21
+httpx>=0.27
+python-dateutil>=2.9
+tzdata
+# Optional (voice). Install with: pip install -r requirements-voice.txt

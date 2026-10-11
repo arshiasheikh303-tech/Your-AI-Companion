@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Companion Dashboard</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--text:#1d2330;--mut:#667085;--line:#e4e7ec;--ok:#12805c;--bad:#c0392b;--accent:#4f46e5}
+@media(prefers-color-scheme:dark){:root{--bg:#10131a;--card:#181c26;--text:#e8ebf2;--mut:#98a2b3;--line:#262c3a;--ok:#4cc38a;--bad:#ff7a6b;--accent:#8b85ff}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font:15px/1.5 system-ui,sans-serif}
+header{padding:16px 20px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center}
+h1{font-size:18px;margin:0}main{display:grid;gap:14px;padding:16px;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));max-width:1300px;margin:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;overflow:hidden}
+.card h2{font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);margin:0 0 8px}
+.row{display:flex;justify-content:space-between;gap:10px;padding:4px 0;border-bottom:1px dashed var(--line)}.row:last-child{border:0}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.mut{color:var(--mut);font-size:13px}
+.msg{padding:6px 8px;margin:4px 0;border-radius:8px;background:var(--bg)}.msg.assistant{border-left:3px solid var(--accent)}
+.scroll{max-height:320px;overflow:auto}button{background:var(--accent);color:#fff;border:0;border-radius:6px;padding:6px 12px;cursor:pointer}
+</style></head><body>
+<header><h1>🤝 AI Companion</h1><span class="mut" id="stamp"></span></header>
+<main>
+<section class="card"><h2>Status</h2><div id="status">Loading…</div></section>
+<section class="card"><h2>Proactive activity</h2><div class="scroll" id="proactive"></div></section>
+<section class="card"><h2>Recent conversation</h2><div class="scroll" id="conv"></div></section>
+<section class="card"><h2>Memories</h2><div class="scroll" id="mem"></div></section>
+<section class="card"><h2>Tasks</h2><div class="scroll" id="tasks"></div></section>
+<section class="card"><h2>Reminders</h2><div class="scroll" id="rem"></div></section>
+</main>
+<script>
+let token=new URLSearchParams(location.search).get('token')||localStorage.getItem('apiToken')||'';
+if(!token){token=prompt('API token (shown in the console at startup):')||'';}
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+async function get(p){const r=await fetch(p,{headers:{'X-API-Token':token}});if(r.status===401){localStorage.removeItem('apiToken');throw new Error('bad token')}return r.json()}
+const fmt=t=>t?new Date(t).toLocaleString([], {month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}):'—';
+const list=(id,items,f)=>document.getElementById(id).innerHTML=items.length?items.map(f).join(''):'<span class="mut">Nothing yet.</span>';
+async function refresh(){
+ try{
+  const s=await get('/status');localStorage.setItem('apiToken',token);
+  const b=(v)=>v?'<span class="ok">● online</span>':'<span class="bad">● offline</span>';
+  document.getElementById('status').innerHTML=[
+   ['Model ('+esc(s.model)+')',b(s.ai_online)],['Database',b(s.database)],['Telegram',b(s.telegram_connected)],['Scheduler',b(s.scheduler_running)],
+   ['Last you messaged',fmt(s.last_user_message)],['Last agent message',fmt(s.last_agent_message)],['Last proactive',fmt(s.last_proactive)],
+   ['Proactive',s.proactive_enabled?'on':'off'],['Paused until',fmt(s.paused_until)],['Unanswered check-ins',s.unanswered_proactive],
+   ['Uptime',Math.round(s.uptime_seconds/60)+' min']].map(([k,v])=>`<div class="row"><span>${k}</span><span>${v}</span></div>`).join('');
+  list('proactive',s.proactive_activity,e=>`<div class="row"><span class="mut">${fmt(e.at)}</span><span>${esc(e.detail)}</span></div>`);
+  list('conv',await get('/conversations?limit=30'),m=>`<div class="msg ${m.role}"><span class="mut">${m.role}${m.kind!=='chat'?' · '+m.kind:''} · ${fmt(m.at)}</span><br>${esc(m.content)}</div>`);
+  list('mem',await get('/memories'),m=>`<div class="row"><span>${esc(m.content)}<br><span class="mut">${esc(m.category)} · ${m.source}</span></span><button onclick="del(${m.id})">Forget</button></div>`);
+  list('tasks',await get('/tasks'),t=>`<div class="row"><span>${t.status==='done'?'✅':'⬜'} ${esc(t.title)}</span><span class="mut">${t.due?fmt(t.due):''}</span></div>`);
+  list('rem',await get('/reminders'),r=>`<div class="row"><span>${esc(r.text)}</span><span class="mut">${fmt(r.due)}${r.recurrence!=='none'?' · '+r.recurrence:''}</span></div>`);
+  document.getElementById('stamp').textContent='updated '+new Date().toLocaleTimeString();
+ }catch(e){document.getElementById('status').textContent='Error: '+e.message}
+}
+async function del(id){await fetch('/memories/'+id,{method:'DELETE',headers:{'X-API-Token':token}});refresh()}
+refresh();setInterval(refresh,15000);
+</script></body></html>

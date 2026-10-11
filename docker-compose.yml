@@ -1,0 +1,27 @@
+# Runs the companion. Ollama is expected on the HOST (best for GPU/Windows):
+#   OLLAMA_HOST=http://host.docker.internal:11434
+# To run Ollama in Docker too, uncomment the "ollama" service and set OLLAMA_HOST=http://ollama:11434
+services:
+  companion:
+    build: .
+    env_file: .env
+    environment:
+      OLLAMA_HOST: ${OLLAMA_HOST:-http://host.docker.internal:11434}
+      DATABASE_URL: sqlite:///./data/agent.db
+      API_HOST: 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "127.0.0.1:8000:8000"   # dashboard/API only on your machine
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+
+  # ollama:
+  #   image: ollama/ollama
+  #   volumes:
+  #     - ollama:/root/.ollama
+  #   ports:
+  #     - "127.0.0.1:11434:11434"
+# volumes:
+#   ollama:

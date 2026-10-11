@@ -1,0 +1,9 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+data/*.db
+data/generated/*
+!data/generated/.gitkeep
+data/voice/
+.pytest_cache/
